@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '../../../contexts/AuthContext';
 import { taskAPI } from '../../../lib/api';
 
@@ -28,7 +29,8 @@ export default function DashboardPage() {
   const [tasksLoading, setTasksLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'in_progress' | 'completed'>('all');
-  
+  const [searchQuery, setSearchQuery] = useState('');
+
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -155,9 +157,13 @@ export default function DashboardPage() {
     router.push('/login');
   };
 
-  const filteredTasks = filterStatus === 'all'
-    ? tasks
-    : tasks.filter(task => task.status === filterStatus);
+  // Filter by status AND search query
+  const filteredTasks = tasks.filter(task => {
+    const matchesStatus = filterStatus === 'all' || task.status === filterStatus;
+    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         task.description.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
 
   const stats = {
     total: tasks.length,
@@ -183,7 +189,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-   
+
       <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
@@ -216,7 +222,7 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 transform hover:-translate-y-1">
             <div className="flex items-center justify-between">
@@ -286,7 +292,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-      
+
         <div className="mb-8">
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
@@ -299,7 +305,7 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        
+
         {showCreateForm && (
           <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-gray-100 animate-fadeIn">
             <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
@@ -386,7 +392,43 @@ export default function DashboardPage() {
           </div>
         )}
 
-        
+        {/* Search Bar */}
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-8 border border-gray-100">
+          <div className="relative">
+            <svg
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search tasks by title or description..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+
         <div className="bg-white rounded-2xl shadow-lg p-2 mb-8 border border-gray-100">
           <div className="flex flex-wrap gap-2">
             {(['all', 'pending', 'in_progress', 'completed'] as const).map((status) => (
@@ -405,7 +447,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-       
+
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
@@ -413,7 +455,7 @@ export default function DashboardPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </div>
-            My Tasks
+            My Tasks {searchQuery && `(${filteredTasks.length} results)`}
           </h2>
 
           {tasksLoading ? (
@@ -429,21 +471,24 @@ export default function DashboardPage() {
                 </svg>
               </div>
               <p className="text-gray-600 font-medium">No tasks found</p>
-              <p className="text-gray-400 text-sm mt-2">Create your first task to get started!</p>
+              <p className="text-gray-400 text-sm mt-2">
+                {searchQuery ? 'Try adjusting your search criteria' : 'Create your first task to get started!'}
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
               {filteredTasks.map((task) => (
-                <div
+                <Link
                   key={task.id}
-                  className="border-2 border-gray-100 rounded-xl p-6 hover:shadow-lg hover:border-indigo-200 transition-all duration-300 transform hover:-translate-y-1 bg-gradient-to-br from-white to-gray-50"
+                  href={`/tasks/${task.id}`}
+                  className="border-2 border-gray-100 rounded-xl p-6 hover:shadow-lg hover:border-indigo-200 transition-all duration-300 transform hover:-translate-y-1 bg-gradient-to-br from-white to-gray-50 cursor-pointer block"
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">
+                      <h3 className="text-xl font-bold text-gray-900 mb-2 hover:text-indigo-600 transition-colors">
                         {task.title}
                       </h3>
-                      <p className="text-gray-600 mb-4 leading-relaxed">{task.description}</p>
+                      <p className="text-gray-600 mb-4 leading-relaxed line-clamp-2">{task.description}</p>
                       <div className="flex flex-wrap gap-3">
                         <span
                           className={`px-4 py-1.5 rounded-full text-sm font-semibold ${
@@ -456,21 +501,17 @@ export default function DashboardPage() {
                         >
                           {task.priority.toUpperCase()}
                         </span>
-                        <select
-                          value={task.status}
-                          onChange={(e) => handleUpdateStatus(task.id, e.target.value as 'pending' | 'in_progress' | 'completed')}
-                          className={`px-4 py-1.5 rounded-full text-sm font-semibold border-2 cursor-pointer transition-all ${
+                        <span
+                          className={`px-4 py-1.5 rounded-full text-sm font-semibold ${
                             task.status === 'completed'
-                              ? 'bg-green-100 text-green-700 border-green-200'
+                              ? 'bg-green-100 text-green-700 border-2 border-green-200'
                               : task.status === 'in_progress'
-                              ? 'bg-blue-100 text-blue-700 border-blue-200'
-                              : 'bg-gray-100 text-gray-700 border-gray-200'
+                              ? 'bg-blue-100 text-blue-700 border-2 border-blue-200'
+                              : 'bg-gray-100 text-gray-700 border-2 border-gray-200'
                           }`}
                         >
-                          <option value="pending">Pending</option>
-                          <option value="in_progress">In Progress</option>
-                          <option value="completed">Completed</option>
-                        </select>
+                          {task.status.replace('_', ' ').toUpperCase()}
+                        </span>
                         {task.due_date && (
                           <span className="px-4 py-1.5 rounded-full text-sm font-semibold bg-purple-100 text-purple-700 border-2 border-purple-200">
                             📅 {new Date(task.due_date).toLocaleDateString()}
@@ -478,28 +519,8 @@ export default function DashboardPage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-2 ml-4">
-                      <button
-                        onClick={() => handleOpenEdit(task)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 border-2 border-transparent hover:border-blue-200"
-                        title="Edit task"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteTask(task.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 border-2 border-transparent hover:border-red-200"
-                        title="Delete task"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
